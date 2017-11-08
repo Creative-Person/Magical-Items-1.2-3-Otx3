@@ -2,7 +2,7 @@ dofile('data/items/magical_items_lib.lua')
 
 x = EQ()
 -- Example
---[[
+
 
 -- tier 1
 x:setTier(1, "ancient tiara", 1)
@@ -31,4 +31,3 @@ x:setTier(5, 'brass shield', 1)
 	x:directDamage('combat fire', 50)
 	x:damageReduction('defense physical', 500, 'defense death', 2)
 	x:regen('mana', 100)
-]]
