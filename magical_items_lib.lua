@@ -158,31 +158,6 @@ function EQ.getSerial(self, name)
     return self.serialTable[name] and self.serialTable[name] or ''
 end
 
--- use to intialize an item at a specific slot and tier
---[[
-Example Usage:
-
-x:setTier(1, "ancient tiara", 1)
-    x:attributes({'max health', 'max mana', 'sword','club', 'axe'}, {50, 50, 5, 5, 5})
-    x:regen('hp', 5)
-x:setTier(1, "ancient tiara", 2)
-    x:attributes({'max health', 'max mana', 'sword','club', 'axe'}, {100, 100, 10, 10, 10})
-    x:regen({'hp', 'mana'}, 10)
-x:setTier(1, "ancient tiara", 3)
-    x:attributes({'max health', 'max mana', 'sword','club', 'axe', 'distance'}, {150, 150, 15, 15, 15, 15})
-    x:regen({'hp', 'mana'}, 15)
-
-x:setTier(6, 'thunder hammer', 1)
-  x:directDamage(nil, nil, 'combat ice', 170)
-  x:damageReduction('defense fire', 500)
-
-x:setTier(5, 'brass shield', 1)
-  x:haste(3)
-  x:directDamage('combat fire', 50)
-  x:damageReduction('defense physical', 500, 'defense death', 2)
-
-]]
-
 -- x:setTier(slot, name, tier) 
 function EQ.setTier(self, slot, name, tier)
     self.slot = slot
@@ -801,7 +776,7 @@ function EQ.hasManashield(self, cid, aid, primaryDamage, primaryType, secondaryD
                 end     
             end
         end
-        self:autoHeal(creature:getId(), nil, 'mana') magicItems
+        self:autoHeal(creature:getId(), nil, 'mana')
     end
     return primaryDamage, primaryType, secondaryDamage, secondaryType, origin
 end
@@ -1384,12 +1359,6 @@ end
 
 function EQ.hasCon(self, cid)
   local player = Player(cid)
-  -- gettting the player's conditon doesn't seem to work
-  local con = {
-    {CONDITION_MANASHIELD, 'mana'}, 
-    {CONDITION_PARALYZE, 'health'}, 
-    {CONDITION_POISON, 'poison'} 
-  }
   if player:getHealth() < player:getMaxHealth() then
     return 'health'
   elseif player:getMana() < player:getMaxMana() then
