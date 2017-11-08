@@ -1,0 +1,324 @@
+This guide will help you install and create the necessary files needed to run Magical Items.
+If you follow this guide step by step you shouldn't have any problems, this system is 
+written entirely in lua & the TFS framework, no source editing is required.
+
+A little bit about Magical Items:
+	Magical Items by Codex NG aka Yodex, is a tiered based system for all items which can be equipped to a player.
+	These items can have all sorts of conditions applied to them, they can also be transformed from
+	one item to another. This system allows you to set and stack damage types for both attack and defense.
+	You can also assign existing spells which are not normally meant for that vocation at different tiers that 
+	a player can use temporarily or forever.
+
+An example of this system:
+	17:03 You see a backpack (Vol:20).
+	It weighs 150.60 oz.
+	Wearing this backpack will grant the bearer these attributes [Axe:20] in stats.
+	Damage Reduction [Fire: +9] [Physical: +9]
+
+	In addition to everything listed above, Magical Items has been assigned an auto heal script which determines 
+	the type of damage a player takes and uses the appropriate potion (health / mana) regardless of level or vocation requirement.
+
+	When a player logins they will recieve a msg some thing similar to this
+	17:03 Your autoheal is not active, the warning msg is on, has not been set, it is at its default of 50%, for more info type /autoheal help.
+
+	To see exactly what autoheal does type the command /autoheal help
+	Which should look like this:
+	17:07 To see the status autoheal type:
+	17:07 /autoheal status
+	17:07 To turn on autoheal type:
+	17:07 /autoheal on
+	17:07 To turn off autoheal type:
+	17:07 /autoheal off
+	17:07 To toggle the warning message you get when out of potions type:
+	17:07 /autoheal warning toggle
+	17:07 To change the percentage of healing type:
+	17:07 /autoheal n
+	17:07 Where n is a number, the number must be between 1 - 100.
+	17:07 If the number is the same, less than 1 or greater than 100, then no change will take place.
+
+	The execution per heal will show an emote at what percentage you are healing and a message in the console will tell you what potions 
+	you are using:
+	17:19 Using 1 of 136x super ultimate health potions heals both hp/mana.
+
+	When a player runs out of potions of the required type an emote warning is executed, this warning can be toggled off.
+
+
+Installation:
+
+Files Checklist, locations, and code
+------------------------------------------------------------
+
+1. 
+	data/global.lua
+	copy this below and place it at the bottom of your global.lua
+
+
+	dofile('data/items/magical_items.lua')
+
+
+------------------------------------------------------------
+
+2.
+	Copy magical_items_lib.lua, run_first.lua, run_second.lua and run_third.lua to data/items/
+	There are 7 files that go in this directory, you will are given 4 the remaining 3 will be created, 
+	you will need a lua interpreter to run run_first.lua, run_second.lua and run_third.lua 
+	
+	Zerobrane is a completely free lua interpreter for Windows, Linux & Mac.
+	You can download it here https://studio.zerobrane.com/download?not-this-time 
+
+	run_first.lua
+		This file creates a file called items.lua and must be run 1st, it parses your items.xml file. If you have custom items with 
+		different names or properties such as a shield which you made into a helmet it will read that shield as a helmet.
+	
+	items.lua
+		This is the base file you want to edit to add or remove items you won't be using with this system.
+		The next two files parse the information which is retained in this file.
+	
+	run_second.lua
+		This file parses the items.lua file and generates a file called magical_items.lua and should be run 2nd
+
+	run_third.lua
+		This file also parses the items.lua file and creates a file called magical_items.xml
+	
+	magical_items_lib.lua
+		This is the library which contains all the code needed to run the magical items system.
+
+
+------------------------------------------------------------
+
+3.
+
+	magicItems_creaturescript.lua
+		Place this file in data/creaturescripts/scripts/
+
+	Then edit creaturescripts.xml and add this entry
+		<event type="healthchange" name="MagicItems" script="magicItems_creaturescript.lua" />
+
+	Open up login.lua in data/creaturescripts/scripts/ and add this somewhere inside onLogin
+		x:onLogin(player:getId())
+		player:registerEvent("MagicItems")
+
+
+------------------------------------------------------------
+
+4.
+
+	Go to data/events/scripts and open up creature.lua
+
+	Select everything in there and paste this in, if you have other custom code in there then make the adjustments
+
+	function Creature:onChangeOutfit(outfit)
+		if self:isPlayer() and self:getCondition(CONDITION_OUTFIT) then
+			return false
+		end
+		return true
+	end
+
+	function Creature:onAreaCombat(tile, isAggressive)
+		return RETURNVALUE_NOERROR
+	end
+
+	function Creature:onTargetCombat(target)
+		if target:isMonster() then
+			target:registerEvent("MagicItems")
+		end
+		return RETURNVALUE_NOERROR
+	end
+
+	Now open up events.xml in data/events/ and make sure these lines match the one's in your events.xml
+		<event class="Creature" method="onChangeOutfit" enabled="1" />
+		<event class="Creature" method="onTargetCombat" enabled="1" />
+
+		<event class="Player" method="onLook" enabled="1" />
+		<event class="Player" method="onLookInTrade" enabled="1" />
+
+------------------------------------------------------------
+
+5.
+	Next we need to do is open up player.lua data/events/scripts
+
+	Look for this in Player:onLook
+		local description = "You see " .. thing:getDescription(distance)
+
+	You are going to replace that code with this, if you have custom code here, make the adjustments
+		local description = "You see " .. thing:getDescription(distance) .. self:getMagicItemDescription(thing) 
+
+	Next inside of that method look for
+
+			local uniqueId = thing:getAttribute(ITEM_ATTRIBUTE_UNIQUEID)
+			if uniqueId > 0 and uniqueId < 65536 then
+				description = string.format("%s, Unique ID: %d", description, uniqueId)
+			end
+
+	Underneath that section of code you are going to place this
+
+			local text = thing:getAttribute(ITEM_ATTRIBUTE_TEXT)
+			if text and text ~= '' then
+				description = string.format("%s, Text : %s", description, text)
+			end
+
+			local serial = x:getSerial(thing:getName())
+			if serial and serial ~= '' then
+				description = string.format("%s, Serial : %s", description, serial)
+			end
+
+	
+	Next look for in Player:onLookInTrade
+			self:sendTextMessage(MESSAGE_INFO_DESCR, "You see " .. item:getDescription(distance))
+
+	Replace that code with this
+			self:sendTextMessage(MESSAGE_INFO_DESCR, item:getDescription(distance) .. self:getMagicItemDescription(item) ) 
+
+
+------------------------------------------------------------
+
+6.
+
+	Now open up the magical_items.xml which was created in data/items/ and then open up your movements.xml in data/movements/
+	Copy the entries in magical_items.xml and replace the existing onEquip/DeEquip entries in movements.xml
+
+	Next place the magical_items_movements.lua in your data/movement/scripts/ directory. 
+
+
+------------------------------------------------------------
+7.
+
+	Go to data/talkactions and open talkactions.xml and place this in there
+		<talkaction words="/autoheal" separator=" " script="autoHeal.lua" />
+
+	Next go to data/talkactions/scripts and drop autoheal.lua in there
+
+
+------------------------------------------------------------
+8.
+
+	Editing magical_items.lua
+
+	magical_items.lua
+		This file will contain all of items which will be used with this system. On server startup 
+		All the items in this file will be set with a default of tier 1 with no conditions associated with them
+		It will be your job to use the methods in the magical items libray to set the different attributes to 
+		your equipment in this file.
+	
+
+	Please note all methods are procedural, also you can not (or shouldn't) stack the same condition on top of another.
+
+	Example:
+		-- sets the item ancient tiara to tier 1 at slot 1
+		-- x:setTier(slot, item name, tier)
+		x:setTier(1, 'ancient tiara', 1)
+		-- everything below will be a tier 1 value until it reaches another set tier
+		-- ancient tiara is given a condition of manashield
+		x:manashield()
+		-- ancient tiara attributes
+		x:attributes({'max health', 'max mana', 'fist%','club', 'sword'}, {500, 1000, 20, 30, 50})
+		-- ancient tiara is assigned an outfit
+		x:outfit(2)
+		-- ancient tiara is assigned a condition of hp regen of 50
+		x:regen('hp', 50)
+		-- ancient tiara is given a damage reduction of 20 physical and 10 death damage
+		x:damageReduction('defense physical', 'defense death', 20, 10)
+
+		-- sets the item ancient tiara to tier 2 at slot 1
+		x:setTier(1, 'ancient tiara', 2)
+		-- everything below will be a tier 2 value
+		x:dot({'fire', 'energy'}, 100, 1000, {-1, -2})
+		x:outfit(1)
+		x:damageReduction('defense energy', nil, 50)
+
+	The onLook properties of the ancient tiara on a GOD character will look something like this
+		17:15 You see an ancient tiara.
+		It weighs 8.20 oz.
+		Ye who bears this mystical ancient tiara is granted an ancient magical shield.
+		Wearing this ancient tiara will grant the bearer these attributes [Max Health:500] [Max Mana:1000] [Fist%:20] [Club:30] [Sword:50] in stats.
+		By dressing ancient tiara your true identity will be masked.
+		Wearing this ancient tiara will grant the bearer a boost in [Hp:50] regen.
+		Damage Reduction [Physical: +20] [Death: +10]
+		Item ID: 2139, Serial : 1|0|1|0|1|1|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|0|1|0|0|0|0|0|0|0|0|0|0|0|1|0|0
+		Position: 93, 130, 7
+------------------------------------------------------------
+9. 
+
+	Magical Items Methods (not all of them)
+		
+		-- this is the 1st thing called before each tier, and must be set 1st
+		-- slot is the equipment slot, item name is the name of the item in items.xml, and tier is the tier it has to be to
+		-- benefit from this system 
+		x:setTier(slot, item name, tier)
+
+		-- this is used to up/downgrade and items tier (think crafting)
+		x:setMagicItemTier(item, subtype, tier)
+
+		-- gives the player manashield when an item is equipped, manashield does not stack or scale
+		x:manashield([description[, isCustomItem]])
+
+		-- gives the player invisible when an item is equipped, invisible does not stack or scale
+		x:invisible([description[, isCustomItem]])
+
+		-- gives the player an outfit to wear which they can not remove unless they unequip the item
+		-- outfit does not stack or scale
+		-- the outfitIndex corresponds to both v & d table's index
+		x:outfit(outfitIndex[, description[, isCustomItem]])
+
+		-- gives the player a haste condition, there are a few haste formulas, you can define your own by editing the v table
+		-- the hasteIndex corresponds to the v table's index
+		x:haste(hasteIndex[, description[, isCustomItem]])
+
+		-- gives the player a paralyze condition, there are a few paralyze formulas, you can define your own by editing the v table
+		-- the paralyzeIndex corresponds to the v table's index
+		x:paralyze(paralyzeIndex[, description[, isCustomItem]])
+
+		-- applies a regen buff for either hp or mana or both
+		-- both attributeType & attribute can be a table/variable, if attributeType is a variable so should attribute
+		x:regen(attributeType, attribute[, description[, isCustomItem]])
+
+		-- applies attributes such as health, mana, sword, health percentage, magic level etc to the player when the item is equipped
+		-- both type and attribute can be a table/variable, if type is not a table then attribute has to be a variable
+		x:attributes(type, attribute[, description[, isCustomItem]])
+
+		-- applies light to a player when the item is equipped
+		-- color is anything in the v table, level is a range value of 1 being the lowest and 8 possibly being the highest
+		x:light([color[, level[, description[, isCustomItem]]]])
+
+		-- applies soulgain to a player when an item is equipped 
+		-- gain is how much soul to gain and ticks is how often to gain them
+		x:soul(gain, ticks[, description[, isCustomItem]])
+
+		-- applies damage over time to the player when the item is equipped 
+		-- (think, this item has great stats but it's cursed or it does not belong to them)
+		-- time, round or interval can be a table/variable, if time is a variable the rest should be aswell
+		-- this can not be applied to weapon damage... yet ;)
+		x:dot(time, round, interval, damage[, description[, isCustomItem]])
+
+		-- this method is enabled by default and just detects if the player has manashield
+		-- this method was written because I found the internal manashield not working as expected
+		x:hasManashield(cid, aid, primaryDamage, primaryType, secondaryDamage, secondaryType, origin)
+
+		-- this method only applies to weapons and shields, it gives the item additional attack damage
+		-- in the primary or secondary types
+		-- example of this is
+		-- x:directDamage('combat physical', 12, 'combat fire', 10)
+		x:directDamage(primaryType, primaryValue, secondaryType, secondaryValue, isCustomItem)
+
+		-- this method applies to all items that can be equipped and stacks meaning if you have damage reduction on an
+		-- armor of say 10 and a shield of 15 then you get reduced fire damage of 25  
+		-- in the primary or secondary types
+		-- example of this is
+		-- x:damageReduction('defense physical', 12, 'defense fire', 10)
+		x:damageReduction(primaryType, secondaryType, primaryValue, secondaryValue, isCustomItem)
+
+		-- sets spell(s) to an item which can be removed when the item is equipped or made a permanent part of the player's arsonal
+		x:setSpells(spells[, permanent[, isCustomItem]])
+
+		-- this physically transforms an item from one to another
+		-- name is the name of the item you want this item to transform to
+		-- keep is if you want to keep this item as is, as in not change it back
+		x:setTransformItem(name[, keep[, isCustomItem]])
+
+		-- this method will execute the autoheal aspect of Magical Items, its 1st parameter is the player id
+		-- the second parameter is the threshold (the percentage to heal at), the 3rd parameter is the type of heal
+		-- or potion type rather to heal, both the 2nd and 3rd parameters are optional.
+		-- Currently the auto heal does not work on monsters, pets, or summons.
+		x:autoHeal(cid[, threshold[, type_]])
+
+------------------------------------------------------------
